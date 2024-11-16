@@ -12,12 +12,11 @@
     - name: Perform apt update
       ansible.builtin.apt:
         update_cache: true
-
+      changed_when: false
     - name: Install required tools
       ansible.builtin.apt:
         name:
           - unzip
           - jq
-          - stress
           - net-tools
         state: present
