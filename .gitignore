@@ -1,0 +1,11 @@
+.terraform.lock.hcl
+.terraform/*
+invfile*
+*.pem
+ansible_inventory.ini
+*.ini
+devops.pem:Zone.Identifier
+:Zone.Identifier
+terraform.tfvars
+.tfvars
+.vscode
