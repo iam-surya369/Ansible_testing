@@ -1,0 +1,22 @@
+---
+- name: Playbook to Install generic tools
+  hosts: pub
+  gather_facts: true
+  become: true
+  become_user: root
+  tasks:
+    - name: Check the hostnames
+      ansible.builtin.command:
+        cmd: cat /etc/lsb-release
+      changed_when: false
+    - name: Perform apt update
+      ansible.builtin.apt:
+        update_cache: true
+      changed_when: false
+    - name: Install required tools
+      ansible.builtin.apt:
+        name:
+          - unzip
+          - jq
+          - net-tools
+        state: present

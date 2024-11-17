@@ -1,0 +1,75 @@
+---
+- name: Play for Installing Nginx on WebServers
+  hosts: pub
+  gather_facts: true
+  become: true
+  become_user: root
+  vars:
+    aws_account: "529266633648"
+
+  tasks:
+    - name: Print Variable
+      ansible.builtin.debug:
+        msg: System {{ inventory_hostname }} has variable {{ aws_account }}
+
+    - name: Print sensitive variable
+      ansible.builtin.debug:
+        msg: System {{ inventory_hostname }} has variable {{ aws_account }}
+      no_log: true
+
+    - name: Perform apt-update & Install basic packages
+      ansible.builtin.apt:
+        update_cache: true
+        name:
+          - unzip
+          - jq
+          - net-tools
+      when: (ansible_facts['distribution'] == "Ubuntu" and ansible_facts['distribution_version'] >= "20.04")
+      timeout: 60
+      tags:
+        - basic_packages
+
+    - name: Install Nginx WebServer
+      ansible.builtin.apt:
+        name:
+          - nginx
+        state: present
+        update_cache: true
+      when: (ansible_facts['distribution'] == "Ubuntu" and ansible_facts['distribution_version'] >= "20.04")
+      timeout: 60
+      tags:
+        - install_nginx
+
+    - name: Start Nginx Service
+      ansible.builtin.service:
+        name: nginx
+        state: started
+      when: (ansible_facts['distribution'] == "Ubuntu" and ansible_facts['distribution_version'] >= "20.04")
+      tags:
+        - start_nginx
+
+    - name: Enable Nginx Service
+      ansible.builtin.service:
+        name: nginx
+        enabled: true
+      when: (ansible_facts['distribution'] == "Ubuntu" and ansible_facts['distribution_version'] >= "20.04")
+      tags:
+        - enable_nginx
+
+- name: Play for Copying Files
+  hosts: pub
+  become: true
+  become_user: root
+
+  tasks:
+    - name: Copy html Files
+      ansible.builtin.copy:
+        src: "{{ item.src }}"
+        dest: "{{ item.dest }}"
+        owner: root
+        group: root
+        mode: "0644"
+      when: (ansible_facts['distribution'] == "Ubuntu" and ansible_facts['distribution_version'] >= "20.04")
+      loop:
+        - { src: "/home/surya/ansible_testing/playbooks/1.nginx/sample.html", dest: "/var/www/html/index.nginx-debian.html" }
+        - { src: "/home/surya/ansible_testing/playbooks/1.nginx/aboutus.html", dest: "/var/www/html/aboutus.html" }
