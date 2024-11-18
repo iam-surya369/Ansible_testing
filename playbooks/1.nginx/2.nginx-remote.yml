@@ -1,0 +1,108 @@
+---
+- name: Play for Installing Nginx on WebServers
+  hosts: pub
+  gather_facts: true
+  become: true
+  become_user: root
+  vars:
+    aws_account: "529266633648"
+    is_ubuntu: (ansible_facts['distribution'] == "Ubuntu" and ansible_facts['distribution_version'] >= "20.04")
+
+  tasks:
+    - name: Print Variable
+      ansible.builtin.debug:
+        msg: System {{ inventory_hostname }} has variable {{ aws_account }}
+
+    - name: Print sensitive variable
+      ansible.builtin.debug:
+        msg: System {{ inventory_hostname }} has variable {{ aws_account }}
+      no_log: true
+
+    - name: Perform apt-update  # Update apt cache
+      ansible.builtin.apt:
+        update_cache: true
+      when: is_ubuntu
+      timeout: 60
+      tags:
+        - apt_update
+
+    - name: Clone the Git Repo  # Clone the Git repository
+      ansible.builtin.git:
+        repo: 'https://github.com/saikiranpi/ansible_testing.git'
+        dest: '/home/ubuntu/ansible_testing_page'
+        version: Master
+        force: true
+      when: is_ubuntu
+      timeout: 60
+      become: true
+      tags:
+        - clone_repo
+
+    - name: Ensure /var/www/html directory exists # Ensure the web directory exists
+      ansible.builtin.file:
+        path: /var/www/html
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+      when: is_ubuntu
+
+    - name: Install Nginx WebServer # Install Nginx
+      ansible.builtin.apt:
+        name:
+          - nginx
+        state: present
+      when: is_ubuntu
+      timeout: 60
+      tags:
+        - nginx_tasks
+
+    - name: Copy the HTML files to the destination folder # Copy HTML files to destination folder
+      ansible.builtin.copy:
+        src: "{{ item.src }}"
+        dest: "{{ item.dest }}"
+        remote_src: true
+        owner: root
+        group: root
+        mode: "0644"
+      become: true
+      become_user: root
+      when: is_ubuntu
+      timeout: 60
+      loop:
+        - { src: /home/ubuntu/ansible_testing_page/index.html, dest: "/var/www/html/index.nginx-debian.html" }
+        - { src: /home/ubuntu/ansible_testing_page/scorekeeper.js, dest: "/var/www/html/scorekeeper.js" }
+        - { src: /home/ubuntu/ansible_testing_page/style.css, dest: "/var/www/html/style.css" }
+      tags:
+        - nginx_tasks
+
+    - name: Debug Cloned Files
+      ansible.builtin.command: ls /home/ubuntu/ansible_testing_page/
+      register: cloned_files
+      changed_when: false
+
+    - name: Display Cloned Files
+      ansible.builtin.debug:
+        var: cloned_files.stdout
+
+    - name: Restart Nginx WebServer # Restart Nginx service
+      ansible.builtin.service:
+        name: nginx
+        state: restarted
+      tags:
+        - nginx_tasks
+
+    - name: Enable Nginx WebServer  # Enable Nginx service
+      ansible.builtin.service:
+        name: nginx
+        enabled: true
+      when: is_ubuntu
+      timeout: 30
+      tags:
+        - nginx_tasks
+
+    - name: Delete the Cloned Git Repo after Copying Files  # Delete cloned repository after copying files
+      ansible.builtin.file:
+        path: "/home/ubuntu/ansible_testing_page"
+        state: absent
+      when: is_ubuntu
