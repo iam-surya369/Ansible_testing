@@ -1,0 +1,72 @@
+---
+- name: Check & Install AWS CLI
+  hosts: pub
+  gather_facts: true
+  become: true
+  become_user: root
+  tasks:
+    - name: Perform apt-update & Install necessary tools
+      ansible.builtin.apt:
+        update_cache: true
+        name:
+          - unzip
+
+    - name: Check the AWS version
+      ansible.builtin.command: aws --version
+      register: check_aws_version
+      changed_when: false
+      ignore_errors: true
+
+    - name: Determine if AWS CLI needs installation
+      ansible.builtin.debug:
+        msg: "AWS is not installed. Proceeding with installation..."
+      when: check_aws_version.rc != 0
+
+    - name: Download AWS CLI installer
+      ansible.builtin.get_url:
+        url: "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip"
+        dest: "/tmp/awscliv2.zip"
+        mode: "0644"
+      when: check_aws_version.rc != 0
+
+    - name: Extract AWS CLI installer
+      ansible.builtin.unarchive:
+        src: "/tmp/awscliv2.zip"
+        dest: "/tmp"
+        remote_src: true
+      when: check_aws_version.rc != 0
+
+    - name: Install AWS CLI
+      ansible.builtin.command: "/tmp/aws/install"
+      args:
+        creates: "/usr/local/bin/aws"
+      when: check_aws_version.rc != 0
+
+    - name: Verify AWS CLI installation
+      ansible.builtin.command: aws --version
+      register: installed_aws_version
+      changed_when: false
+
+    - name: Validate successful installation
+      ansible.builtin.fail:
+        msg: "AWS CLI installation failed"
+      when: installed_aws_version.rc != 0
+
+    - name: Display installed AWS CLI version
+      ansible.builtin.debug:
+        msg: "Installed AWS CLI version: {{ installed_aws_version.stdout }}"
+
+    - name: Cleaning up the downloaded and extracted files
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      with_items:
+        - /tmp/awscliv2.zip
+        - /tmp/aws
+
+    - name: Log files being cleaned
+      ansible.builtin.debug:
+        msg: "Removed: {{ item }}"
+      with_items:
+        - /tmp/awscliv2.zip
+        - /tmp/aws
