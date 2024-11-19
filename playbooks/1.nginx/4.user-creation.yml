@@ -1,0 +1,38 @@
+---
+- name: Play for creating multiple users
+  hosts: pub
+  gather_facts: true
+  become: true
+  become_user: root
+  vars:
+    users_list:
+      - {name: testuser1, uid: 1001, group: ubuntu}
+      - {name: testuser2, uid: 1002, group: ubuntu}
+      - {name: testuser3, uid: 1003, group: ubuntu}
+
+  tasks:
+    - name: Ensure the 'ubuntu' group exists
+      ansible.builtin.group:
+        name: ubuntu
+        state: present
+
+    - name: Create Multiple Users
+      ansible.builtin.user:
+        name: "{{ item.name }}"
+        uid: "{{ item.uid }}"
+        group: "{{ item.group }}"
+        generate_ssh_key: true
+        ssh_key_bits: 2048
+        ssh_key_file: .ssh/id_rsa
+      loop: "{{ users_list }}"
+      register: user_creation
+
+    - name: User creation failed
+      ansible.builtin.fail:
+        msg: User creation failed
+      when: user_creation.rc != 0
+
+    - name: Debug SSH eys
+      ansible.builtin.debug:
+        msg: "User {{ item.name }} has SSH key generated at /home/{{ item.name }}/.ssh/id_rsa"
+      loop: "{{ users_list }}"
