@@ -9,3 +9,4 @@ devops.pem:Zone.Identifier
 terraform.tfvars
 .tfvars
 .vscode
+redis.conf_backup*
