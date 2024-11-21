@@ -1,0 +1,113 @@
+---
+- name: Install and Configure Redis
+  hosts: pub
+  gather_facts: true
+  become: true
+
+  vars:
+    redis_version: "6.2.5"
+    redis_source_url: "http://download.redis.io/releases/redis-{{ redis_version }}.tar.gz"
+    redis_source_dir: "/tmp/redis-{{ redis_version }}"
+
+  tasks:
+    - name: Update the system
+      ansible.builtin.apt:
+        update_cache: true
+
+    - name: Install build dependencies
+      ansible.builtin.package:
+        name:
+          - make
+          - gcc
+          - build-essential
+          - tcl
+        state: present
+      when: ansible_os_family in ["Debian", "RedHat"]
+
+    - name: Check Redis status
+      ansible.builtin.command: systemctl status redis --no-pager
+      register: redis_status
+      ignore_errors: true
+      changed_when: false
+
+    - name: Download Redis source code
+      ansible.builtin.get_url:
+        url: "{{ redis_source_url }}"
+        dest: "/tmp/redis.tar.tz"
+        mode: "0600"
+      when: redis_status.rc != 0
+
+    - name: Extract Redis source code
+      ansible.builtin.unarchive:
+        src: "/tmp/redis.tar.tz"
+        dest: "/tmp"
+        remote_src: true
+      when: redis_status.rc != 0
+
+    - name: Compile and Install Redis
+      ansible.builtin.shell:
+        cd "{{ redis_source_dir }}" && make install
+      args:
+        executable: /bin/bash
+        creates: /usr/local/bin/redis-server
+      register: redis_install_status
+      when: redis_status.rc != 0
+
+    - name: Check if Redis is installed
+      ansible.builtin.stat:
+        path: /usr/local/bin/redis-server
+      register: redis_binary
+
+    - name: Check if Redis is installed
+      ansible.builtin.debug:
+        msg: "Redis is installed successfully"
+      when: redis_binary.stat.exists
+
+    - name: Configure Redis
+      ansible.builtin.copy:
+        src: redis.conf
+        dest: /etc/redis.conf
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Restart Redis
+
+    - name: Create Redis systemd service
+      ansible.builtin.copy:
+        src: redis.service
+        dest: /etc/systemd/system/redis.service
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Restart Redis
+
+    - name: Start Redis service
+      ansible.builtin.systemd:
+        name: redis
+        state: started
+        enabled: true
+      register: redis_service_started
+      # when: redis_status.rc != 0
+
+    - name: Check if Redis is running
+      ansible.builtin.debug:
+        # var: redis_service_started
+        msg: "Redis is running"
+      when: redis_service_started.state == 'started'
+
+    - name: Delete the extracted redis directory after installation
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - "{{ redis_source_dir }}"
+        - "/tmp/redis.tar.tz"
+      # ignore_errors: true
+      tags:
+        - clean
+
+  handlers:
+    - name: Restart Redis
+      ansible.builtin.systemd:
+        name: redis
+        state: restarted
