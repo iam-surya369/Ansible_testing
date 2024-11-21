@@ -70,7 +70,11 @@
         owner: root
         group: root
         mode: "0644"
-      notify: Restart Redis
+      notify:
+        - Restart Redis
+        - Remove old Redis conf backup if it exists
+        - Backup Redis Config File
+        - Backup Redis Config File to Controller
 
     - name: Create Redis systemd service
       ansible.builtin.copy:
@@ -79,7 +83,8 @@
         owner: root
         group: root
         mode: "0644"
-      notify: Restart Redis
+      notify:
+        - Restart Redis
 
     - name: Start Redis service
       ansible.builtin.systemd:
@@ -111,3 +116,21 @@
       ansible.builtin.systemd:
         name: redis
         state: restarted
+
+    - name: Remove old Redis conf backup if it exists
+      ansible.builtin.file:
+        path: /tmp/redis.conf_backup
+        state: absent
+
+    - name: Backup Redis Config File
+      ansible.builtin.copy:
+        src: /etc/redis.conf
+        dest: /tmp/redis.conf_backup
+        mode: "0644"
+        remote_src: true
+
+    - name: Backup Redis Config File to Controller
+      ansible.builtin.fetch:
+        src: /etc/redis.conf
+        dest: /home/surya/ansible_testing/redis.conf_backup-{{ inventory_hostname }}
+        flat: true
