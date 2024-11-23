@@ -1,0 +1,46 @@
+---
+- name: Testing SHELL, COMMAND, RAW commands
+  hosts: pub
+  become: true
+  tasks:
+    - name: Testing SHELL
+      ansible.builtin.shell:
+        echo "Welcome ${HOME}"
+      changed_when: false
+      tags:
+        - Shell
+
+    - name: Run commands using SHELL
+      ansible.builtin.shell:
+        env && df -h && free
+      changed_when: false
+      tags:
+        - Shell
+
+    - name: Testing COMMAND
+      ansible.builtin.command:
+        echo "Welcome ${HOME}"
+      changed_when: false
+      tags:
+        - Command
+
+    - name: Run commands using COMMAND
+      ansible.builtin.command:
+        env
+      changed_when: false
+      tags:
+        - Command
+
+    - name: Testing RAW
+      ansible.builtin.raw:
+        echo "Welcome ${HOME}"
+      changed_when: false
+      tags:
+        - Raw
+
+    - name: Run commands using RAW
+      ansible.builtin.raw:
+        env && df -h && free
+      changed_when: false
+      tags:
+        - Raw
