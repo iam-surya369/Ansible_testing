@@ -10,3 +10,5 @@ terraform.tfvars
 .tfvars
 .vscode
 redis.conf_backup*
+ansible.cfg
+*.cfg
