@@ -1,0 +1,38 @@
+---
+- name: Play for testing Block, Rescue, Always
+  hosts: pub
+  gather_facts: true
+  become: true
+  tasks:
+    - name: Testing Block
+      block:
+        - name: Perform apt update
+          ansible.builtin.command:
+            apt update
+        - name: Check if unzip exists
+          ansible.builtin.command:
+            unzip
+          register: unzip_status
+          failed_when: unzip_status.rc != 0
+        - name: Check if jq exists
+          ansible.builtin.command:
+            jq --help
+          register: jq_status
+          failed_when: jq_status.rc != 0
+      when: ansible_distribution == 'Ubuntu' and ansible_distribution_version >= '22.04'
+
+      rescue:
+        - name: Perform apt update with root privileges
+          ansible.builtin.command:
+            sudo apt update
+        - name: Install unzip if it doesnt exists
+          ansible.builtin.package:
+            name:
+              - unzip
+              - jq
+            state: present
+
+      always:
+        - name: Run this always
+          ansible.builtin.debug:
+            msg: "Block and Rescue tasks are completed"
