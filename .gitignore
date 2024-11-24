@@ -12,3 +12,5 @@ terraform.tfvars
 redis.conf_backup*
 ansible.cfg
 *.cfg
+.vault_pass
+aws_creds
