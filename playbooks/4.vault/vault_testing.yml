@@ -1,0 +1,125 @@
+---
+- name: Run AWS CLI commands on the servers
+  hosts: pub
+  gather_facts: true
+  become: true
+  serial: 3
+  vars:
+    users_list:
+      - {name: testuser1, password: testuser1}
+      - {name: testuser2, password: testuser2}
+      - {name: testuser3, password: testuser3}
+      - {name: testuser4, password: testuser4}
+
+  tasks:
+    - name: Create .aws folder
+      ansible.builtin.stat:
+        path: /root/.aws/
+      register: check_aws_folder
+      tags:
+        - aws_folder
+
+    - name: Debug the output
+      ansible.builtin.debug:
+        var: check_aws_folder
+      tags:
+        - aws_folder
+
+    - name: Create .aws folder it it doesn't exist
+      ansible.builtin.file:
+        path: /root/.aws/
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+      when: check_aws_folder.stat.exists == false
+      tags:
+        - aws_folder
+
+    - name: Copy the encrypted files to .aws folder
+      ansible.builtin.copy:
+        src: "{{ item.src }}"
+        dest: "{{ item.dest }}"
+        owner: root
+        group: root
+        mode: "0600"
+        remote_src: false
+      loop:
+        - { src: /home/surya/ansible_testing/aws_creds, dest: /root/.aws/credentials}
+        - { src: /home/surya/ansible_testing/aws_config, dest: /root/.aws/config}
+      tags:
+        - copy_files
+
+    - name: Retrieve S3 buckets
+      ansible.builtin.shell:
+        set -o pipefail
+        aws s3 ls | cut -d " " -f 3
+      register: s3_buckets
+      changed_when: false
+      tags:
+        - bucket_list
+
+    - name: Print the s3 buckets
+      ansible.builtin.debug:
+        var: s3_buckets.stdout_lines
+      tags:
+        - bucket_list
+
+    - name: Creating admin users
+      ansible.builtin.user:
+        name: "{{ item.name }}"
+        state: present
+        comment: Admin user "{{ item.name }}"
+        groups:
+          - root
+        group: sudo
+        password: "{{ item.password | password_hash('sha512') }}"
+        password_expire_min: 10
+        shell: /bin/bash
+      loop: "{{ users_list }}"
+      no_log: true
+      tags:
+        - user_creation
+
+    - name: Verify if the created user exists in the passwd directory
+      ansible.builtin.shell: "grep -q '^{{ item.name }}:' /etc/passwd"
+      loop: "{{ users_list }}"
+      changed_when: false
+      # failed_when: user_check.rc != 0
+      ignore_errors: true
+      register: user_check
+      no_log: false
+      tags:
+        - verify_user
+
+    # - name: Debug the created users
+    #   ansible.builtin.debug:
+    #     var: user_check
+    #   tags:
+    #     - verify_user
+
+    - name: Ensure all users exist
+      ansible.builtin.fail:
+        msg: "User '{{ item.item.name }}' does not exist"
+      when: item.rc != 0
+      loop: "{{ user_check.results }}"
+      tags:
+        - verify_user
+
+    - name: Replace Password Authentication To Yes
+      ansible.builtin.lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: "^PasswordAuthentication no"
+        line: PasswordAuthentication yes
+        backup: true
+      tags:
+        - password_authentication
+      notify: Restart SSH service
+
+  handlers:
+    - name: Restart SSH service
+      ansible.builtin.service:
+        name: ssh
+        state: restarted
+      tags:
+        - restart_ssh
