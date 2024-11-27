@@ -1,0 +1,106 @@
+---
+- name: Install MySQL database on the webservers
+  hosts: pub
+  gather_facts: true
+  become: true
+  serial: 3
+  vars:
+    mysql_socket: /var/lib/mysql/mysql.sock
+    mysql_port: 3306
+    mysql_data_dir: /var/lib/mysql
+    mysql_pid_file: /var/lib/mysql/mysqld.pid
+    mysql_slow_query_log_enabled: true
+    mysql_slow_query_log: 1
+    mysql_slow_query_log_file: /vflixar/lib/mysql/mysql-slow.log
+    mysql_long_query_time: 3
+    mysql_slow_query_time: 3
+    mysql_innodb_buffer_pool_size: 5734M
+    mysql_innodb_log_file_size: 1433M
+    mysql_max_connections: 682
+    mysql_thread_cache_size: 102
+    mysql_binding_address: "0.0.0.0"
+    hostname: "{{ inventory_hostname }}"
+  tasks:
+    - name: Update the system
+      ansible.builtin.apt:
+        update_cache: true
+      tags:
+        - update_system
+
+    - name: Check if MySQL is installed
+      ansible.builtin.command: which mysql
+      register: check_mysql_status
+      changed_when: false
+      ignore_errors: true
+
+    - name: Debug the MySQL installation
+      ansible.builtin.debug:
+        msg: "MySQL is not installed"
+      when: check_mysql_status.rc != 0
+
+    - name: Install the required dependencies and MySQL
+      ansible.builtin.package:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - mysql-server
+        - mysql-client
+        - python3-mysqldb
+        - libmysqlclient-dev
+      tags:
+        - install_mysql
+
+    - name: Get stats of MySQL
+      ansible.builtin.stat:
+        path: /etc/mysql/mysql.conf.d
+      register: mysql_path
+      tags:
+        - mysql_stats
+
+    - name: Check the stats of MySQL
+      ansible.builtin.fail:
+        msg: "MySQL configuration directory is not present in /etc/mysql/mysql.conf.d"
+      when: not mysql_path.stat.exists
+      tags:
+        - mysql_stats
+
+    - name: Copy the configuration file to MySQL configuration directory
+      ansible.builtin.copy:
+        src: "/home/surya/ansible_testing/playbooks/5.Jinja/mysql_conf.j2"
+        dest: /etc/mysql/mysql.conf.d/mysqld.cnf
+        owner: root
+        group: root
+        mode: "0644"
+      when: mysql_path.stat.exists
+
+    - name: Start and enable MySQL
+      ansible.builtin.service:
+        name: mysql
+        state: started
+        enabled: true
+
+    - name: Create a new database
+      community.mysql.mysql_db:
+        name: myflixdb
+        state: absent
+        login_user: root
+      tags:
+        - create_db
+
+    - name: Copy database dump file
+      ansible.builtin.copy:
+        src: "/home/surya/ansible_testing/playbooks/5.Jinja/dump.sql"
+        dest: /tmp/dump.sql
+        owner: root
+        group: root
+        mode: "0644"
+      tags:
+        - create_db
+
+    - name: Restore database
+      community.mysql.mysql_db:
+        name: myflixdb
+        state: import
+        target: /tmp/dump.sql
+      tags:
+        - create_db
