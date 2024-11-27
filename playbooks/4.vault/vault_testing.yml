@@ -9,7 +9,7 @@
       - {name: testuser1, password: testuser1}
       - {name: testuser2, password: testuser2}
       - {name: testuser3, password: testuser3}
-      - {name: testuser4, password: testuser4}
+      # - {name: testuser4, password: testuser4}
 
   tasks:
     - name: Create .aws folder
@@ -32,7 +32,7 @@
         owner: root
         group: root
         mode: "0755"
-      when: check_aws_folder.stat.exists == false
+      when: check_aws_folder.stat.exists
       tags:
         - aws_folder
 
@@ -82,7 +82,7 @@
         - user_creation
 
     - name: Verify if the created user exists in the passwd directory
-      ansible.builtin.shell: "grep -q '^{{ item.name }}:' /etc/passwd"
+      ansible.builtin.command: "grep -q '^{{ item.name }}:' /etc/passwd"
       loop: "{{ users_list }}"
       changed_when: false
       # failed_when: user_check.rc != 0
@@ -92,11 +92,11 @@
       tags:
         - verify_user
 
-    # - name: Debug the created users
-    #   ansible.builtin.debug:
-    #     var: user_check
-    #   tags:
-    #     - verify_user
+    - name: Debug the created users
+      ansible.builtin.debug:
+        var: user_check
+      tags:
+        - verify_user
 
     - name: Ensure all users exist
       ansible.builtin.fail:
