@@ -15,3 +15,4 @@ ansible.cfg
 .vault_pass
 aws_creds
 aws_config
+users_list
