@@ -4,12 +4,8 @@
   gather_facts: true
   become: true
   serial: 3
-  vars:
-    users_list:
-      - {name: testuser1, password: testuser1}
-      - {name: testuser2, password: testuser2}
-      - {name: testuser3, password: testuser3}
-      # - {name: testuser4, password: testuser4}
+  vars_files:
+    - /home/surya/ansible_testing/users_list
 
   tasks:
     - name: Create .aws folder
@@ -52,7 +48,7 @@
 
     - name: Retrieve S3 buckets
       ansible.builtin.shell:
-        set -o pipefail
+        # set -o pipefail
         aws s3 ls | cut -d " " -f 3
       register: s3_buckets
       changed_when: false
@@ -88,21 +84,22 @@
       # failed_when: user_check.rc != 0
       ignore_errors: true
       register: user_check
-      no_log: false
+      no_log: true
       tags:
         - verify_user
 
-    - name: Debug the created users
-      ansible.builtin.debug:
-        var: user_check
-      tags:
-        - verify_user
+    # - name: Debug the created users
+    #   ansible.builtin.debug:
+    #     var: user_check
+    #   tags:
+    #     - verify_user
 
     - name: Ensure all users exist
       ansible.builtin.fail:
         msg: "User '{{ item.item.name }}' does not exist"
       when: item.rc != 0
       loop: "{{ user_check.results }}"
+      no_log: true
       tags:
         - verify_user
 
