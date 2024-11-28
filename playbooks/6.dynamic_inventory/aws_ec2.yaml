@@ -1,0 +1,13 @@
+plugin: aws_ec2
+regions:
+  - us-east-1
+keyed_groups:
+  # Add hosts to tag_Name_Value groups for each Name/Value tag pair
+  - key: tags
+    prefix: tag
+  # Add hosts to e.g. instance_type_z3_tiny
+  - key: instance_type
+    prefix: instance_type
+  # Create a group per region e.g. aws_region_us_east_2
+  - key: placement.region
+    prefix: aws_region
