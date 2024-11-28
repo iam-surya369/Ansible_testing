@@ -1,6 +1,6 @@
 ---
 - name: Check & Install AWS CLI
-  hosts: pub
+  hosts: tag_Terraform_Managed_yes
   gather_facts: true
   become: true
   become_user: root
@@ -47,7 +47,7 @@
       register: installed_aws_version
       changed_when: false
 
-    - name: Validate successful installation
+    - name: Check if installation failed
       ansible.builtin.fail:
         msg: "AWS CLI installation failed"
       when: installed_aws_version.rc != 0
