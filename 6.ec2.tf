@@ -8,5 +8,7 @@ resource "aws_instance" "webservers" {
   associate_public_ip_address = true
   tags = {
     Name = "${var.instance_names[count.index]}-server"
+    Terraform_Managed = "yes"
+    ProjectID = var.project_id
   }
 }
